@@ -51,7 +51,7 @@ ${plan}
 
     const patch = completion.choices?.[0]?.message?.content ?? "";
     return NextResponse.json({ patch });
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("generate-code error:", e);
     return NextResponse.json(
       { error: e?.message ?? String(e) },

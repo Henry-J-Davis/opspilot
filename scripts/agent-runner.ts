@@ -1,4 +1,7 @@
-import "dotenv/config";
+import dotenv from "dotenv";
+dotenv.config({ path: ".env.local", quiet: true });
+
+import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
 import { execSync } from "node:child_process";
 import fs from "node:fs";
@@ -19,16 +22,12 @@ function sh(cmd: string) {
   execSync(cmd, { stdio: "inherit" });
 }
 
-<<<<<<< Updated upstream
-=======
 function shCapture(cmd: string) {
   console.log(`\n$ ${cmd}`);
   try {
     const out = execSync(cmd, { stdio: "pipe" });
     return { ok: true as const, output: out.toString("utf8") };
- 
- 
-   } catch (e: unknown) {
+  } catch (e: unknown) {
     const err = e as { stdout?: unknown; stderr?: unknown };
     const stdout =
       typeof err?.stdout === "string"
@@ -51,36 +50,21 @@ function ensureCleanWorkingTreeOrFail() {
   if (!res.ok) throw new Error(`git status failed:\n${res.output}`);
   if (res.output.trim().length > 0) {
     throw new Error(
-      "Working tree is not clean. Commit/stash changes before running the agent.\n" +
-        res.output
+      "Working tree is not clean. Commit/stash changes before running the agent.\n" + res.output
     );
   }
 }
 
 function assertAllowedPath(filePath: string) {
-  const allowedPrefixes = [
-    "src/app/",
-    "src/components/",
-    "src/lib/",
-    "supabase/migrations/",
-  ];
-
-  const forbiddenPrefixes = [
-    ".git/",
-    ".github/",
-    ".env",
-    "node_modules/",
-    "scripts/", // prevent agent overwriting itself
-  ];
+  const allowedPrefixes = ["src/app/", "src/components/", "src/lib/", "supabase/migrations/"];
+  const forbiddenPrefixes = [".git/", ".github/", ".env", "node_modules/", "scripts/"];
 
   if (filePath.startsWith("/") || filePath.includes("..")) {
     throw new Error(`Unsafe file path: ${filePath}`);
   }
-
   if (forbiddenPrefixes.some((p) => filePath.startsWith(p) || filePath === p)) {
     throw new Error(`Forbidden file path: ${filePath}`);
   }
-
   if (!allowedPrefixes.some((p) => filePath.startsWith(p))) {
     throw new Error(
       `Path not allowed by allowlist: ${filePath}\nAllowed: ${allowedPrefixes.join(", ")}`
@@ -106,8 +90,8 @@ async function regeneratePatchFromLint(args: {
       {
         role: "system",
         content:
-          "You are a senior engineer. You will revise a previously generated patch to fix lint errors. " +
-          "You MUST obey repo layout rules and output only full-file patch sections.",
+          "You are a senior engineer. Revise a previously generated patch to fix lint errors. " +
+          "Output only full-file patch sections.",
       },
       {
         role: "user",
@@ -119,10 +103,10 @@ Repo rules:
 - Helpers under src/lib/**.
 - Output ONLY sections formatted like:
   ## <file path>
-  \`\`\`<language>
+  ~~~<language>
   <FULL FILE CONTENT>
-  \`\`\`
-- No git diffs. No snippets.
+  ~~~
+- No git diffs.
 
 Feature:
 TITLE: ${title}
@@ -137,7 +121,7 @@ ${plan}
 PREVIOUS PATCH:
 ${previousPatch}
 
-LINT OUTPUT (fix these errors):
+LINT OUTPUT:
 ${lintOutput}
 
 Task:
@@ -150,18 +134,10 @@ Return a corrected patch that fixes the lint errors while implementing the featu
   return completion.choices?.[0]?.message?.content ?? "";
 }
 
->>>>>>> Stashed changes
-// Naive but effective parser:
-// Expects patch markdown sections like:
-// ## path/to/file
-// ```tsx
-// ...file content...
-// ```
 function extractFilesFromPatch(patch: string): Array<{ filePath: string; content: string }> {
   const files: Array<{ filePath: string; content: string }> = [];
   const sectionRegex = /^##\s+(.+?)\s*$/gm;
 
-  // Find headings and slice between them
   const headings: Array<{ filePath: string; index: number }> = [];
   let m: RegExpExecArray | null;
 
@@ -174,14 +150,15 @@ function extractFilesFromPatch(patch: string): Array<{ filePath: string; content
     const end = i + 1 < headings.length ? headings[i + 1].index : patch.length;
     const chunk = patch.slice(start, end);
 
-    // Grab first fenced code block in that chunk
-    const codeBlockMatch = chunk.match(/```[a-zA-Z]*\s*\n([\s\S]*?)\n```/);
+    const codeBlockMatch =
+      chunk.match(/```[a-zA-Z]*\s*\n([\s\S]*?)\n```/) ??
+      chunk.match(/~~~[a-zA-Z]*\s*\n([\s\S]*?)\n~~~/);
+
     if (!codeBlockMatch) continue;
 
     const content = codeBlockMatch[1];
     const filePath = headings[i].filePath;
 
-    // Only write files inside repo (basic safety)
     if (filePath.startsWith("/") || filePath.includes("..")) {
       throw new Error(`Unsafe file path in patch: ${filePath}`);
     }
@@ -195,75 +172,126 @@ function extractFilesFromPatch(patch: string): Array<{ filePath: string; content
 async function main() {
   const SUPABASE_URL = process.env.SUPABASE_URL;
   const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in env.");
   }
+  if (!OPENAI_API_KEY) {
+    throw new Error("Missing OPENAI_API_KEY in env (.env.local). Needed for self-healing lint.");
+  }
 
   const featureId = process.argv[2];
+  const flags = new Set(process.argv.slice(3));
+  const DRY_RUN = flags.has("--dry-run");
+
   if (!featureId) {
-    console.error("Usage: npx tsx scripts/agent-runner.ts <feature_request_id>");
+    console.error("Usage: npx tsx scripts/agent-runner.ts <feature_request_id> [--dry-run]");
     process.exit(1);
   }
 
+  const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-const branchInfo = shCapture("git rev-parse --abbrev-ref HEAD");
-if (branchInfo.ok) {
-  console.log(`Current branch: ${branchInfo.output.trim()}`);
-}
-  
-  // 1) Load feature request
-  const { data: fr, error } = await supabase
+
+  const branchInfo = shCapture("git rev-parse --abbrev-ref HEAD");
+  if (branchInfo.ok) console.log(`Current branch: ${branchInfo.output.trim()}`);
+
+  const { data: rows, error } = await supabase
     .from("feature_requests")
     .select("id,title,description,spec_markdown,plan_markdown,code_patch_markdown,tests_markdown")
-    .eq("id", featureId)
-    .single();
+    .eq("id", featureId);
 
-  if (error || !fr) throw new Error(`Failed to load feature request: ${error?.message}`);
+  if (error) throw new Error(`Failed to query feature_requests: ${error.message}`);
+  if (!rows || rows.length === 0) throw new Error(`No feature request found for id: ${featureId}`);
+  if (rows.length > 1) throw new Error(`Multiple feature requests found for id: ${featureId}`);
 
-  const row = fr as FeatureRequestRow;
+  const row = rows[0] as FeatureRequestRow;
 
   console.log("\nLoaded Feature Request:");
   console.log(`- id: ${row.id}`);
   console.log(`- title: ${row.title}`);
 
-  // 2) Ensure patch exists (you already generate it in app; runner assumes it's present)
   if (!row.code_patch_markdown) {
     throw new Error("No code_patch_markdown found. Generate Code Patch in the app first.");
   }
 
-  // 3) Create a new git branch
   const branchName = `agent/${row.id.slice(0, 8)}-${Date.now()}`;
-<<<<<<< Updated upstream
-=======
 
-if (!DRY_RUN) {
-  ensureCleanWorkingTreeOrFail();
-  console.log(`git status summary:\n${shCapture("git status --porcelain").output}`);
->>>>>>> Stashed changes
-  sh(`git checkout -b ${branchName}`);
+  if (!DRY_RUN) {
+    ensureCleanWorkingTreeOrFail();
+    sh(`git checkout -b ${branchName}`);
+  } else {
+    console.log("\n[DRY RUN] Skipping clean-tree check and branch creation.");
+  }
 
-  // 4) Apply file writes
   const files = extractFilesFromPatch(row.code_patch_markdown);
   if (files.length === 0) {
-    throw new Error("Patch parser found no files. Ensure patch output uses ## file headings + fenced code blocks.");
+    throw new Error(
+      "Patch parser found no files. Ensure patch output uses ## headings + fenced code blocks."
+    );
   }
 
   for (const f of files) {
+    assertAllowedPath(f.filePath);
+
     const abs = path.join(process.cwd(), f.filePath);
     const dir = path.dirname(abs);
     fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(abs, f.content, "utf8");
-    console.log(`Wrote: ${f.filePath}`);
+
+    if (DRY_RUN) {
+      console.log(`[DRY RUN] Would write: ${f.filePath}`);
+    } else {
+      fs.writeFileSync(abs, f.content, "utf8");
+      console.log(`Wrote: ${f.filePath}`);
+    }
   }
 
-  // 5) Run checks (adjust as your repo supports)
-  // If you don't have tests yet, you can comment these out.
-  try {
-    sh("npm run lint");
-  } catch {
-    console.warn("Lint failed. Fix issues or adjust runner.");
-    process.exit(1);
+  if (DRY_RUN) {
+    console.log("\n[DRY RUN] Skipping lint/tests/commit/push/PR.");
+    return;
+  }
+
+  const MAX_ATTEMPTS = 3;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const lintRes = shCapture("npm run lint");
+
+    if (lintRes.ok) {
+      console.log(`✅ Lint passed on attempt ${attempt}/${MAX_ATTEMPTS}`);
+      break;
+    }
+
+    console.warn(`❌ Lint failed on attempt ${attempt}/${MAX_ATTEMPTS}`);
+    console.warn(lintRes.output);
+
+    if (attempt === MAX_ATTEMPTS) {
+      throw new Error(`Lint failed after ${MAX_ATTEMPTS} attempts.\n${lintRes.output}`);
+    }
+
+    const newPatch = await regeneratePatchFromLint({
+      openai,
+      title: row.title,
+      description: row.description,
+      spec: row.spec_markdown ?? "",
+      plan: row.plan_markdown ?? "",
+      previousPatch: row.code_patch_markdown ?? "",
+      lintOutput: lintRes.output,
+    });
+
+    const revisedFiles = extractFilesFromPatch(newPatch);
+    if (revisedFiles.length === 0) throw new Error("Revised patch parser found no files.");
+
+    for (const f of revisedFiles) {
+      assertAllowedPath(f.filePath);
+      const abs = path.join(process.cwd(), f.filePath);
+      const dir = path.dirname(abs);
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(abs, f.content, "utf8");
+      console.log(`Wrote: ${f.filePath}`);
+    }
+
+    await supabase.from("feature_requests").update({ code_patch_markdown: newPatch }).eq("id", row.id);
+    row.code_patch_markdown = newPatch;
   }
 
   try {
@@ -273,16 +301,21 @@ if (!DRY_RUN) {
     process.exit(1);
   }
 
-  // 6) Commit + push
   sh("git add -A");
   sh(`git commit -m "Agent: ${row.title}"`);
   sh(`git push -u origin ${branchName}`);
 
-  console.log("\n✅ Branch pushed.");
-  console.log("Next: create PR (we'll add GitHub CLI step next if you want).");
+  console.log("\n✅ Branch pushed. Creating PR...");
+
+  try {
+    sh(`gh pr create --title "Agent: ${row.title}" --body "Generated by AI Agent Runner" --base main --fill`);
+    console.log("✅ PR created successfully.");
+  } catch {
+    console.warn("PR creation failed. You can create it manually with: gh pr create --fill");
+  }
 }
 
 main().catch((e) => {
   console.error("\nRunner error:", e);
-  process.exit(1);
+  setTimeout(() => process.exit(1), 50);
 });
