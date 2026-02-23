@@ -114,14 +114,14 @@ export default function FeatureRequestsClient() {
         throw new Error(`API ${res.status}: ${raw}`);
       }
 
-      let data: any = {};
+      let data: unknown;
       try {
         data = JSON.parse(raw);
       } catch {
         throw new Error(`API returned non-JSON: ${raw}`);
       }
 
-      const spec = data?.spec;
+      const spec = (data as Record<string, unknown>)?.spec;
       if (!spec || typeof spec !== "string") {
         throw new Error("API returned no spec text.");
       }
@@ -134,9 +134,11 @@ export default function FeatureRequestsClient() {
       if (upErr) throw new Error(`DB update failed: ${upErr.message}`);
 
       await load();
-    } catch (e: any) {
-      setMsg(e?.message ?? String(e));
-    } finally {
+   } catch (e: unknown) {
+  const msg = e instanceof Error ? e.message : String(e);
+  setMsg(msg);
+}
+    finally {
       setBusyId(null);
     }
   }
@@ -155,14 +157,14 @@ export default function FeatureRequestsClient() {
     const raw = await res.text();
     if (!res.ok) throw new Error(`API ${res.status}: ${raw}`);
 
-    let data: any = {};
+   let data: unknown = {};
     try {
       data = JSON.parse(raw);
     } catch {
       throw new Error(`API returned non-JSON: ${raw}`);
     }
 
-    const plan = data?.plan;
+    const plan = (data as Record<string, unknown>)?.plan;
     if (!plan || typeof plan !== "string") throw new Error("API returned no plan text.");
 
     const { error: upErr } = await supabase
@@ -173,9 +175,11 @@ export default function FeatureRequestsClient() {
     if (upErr) throw new Error(`DB update failed: ${upErr.message}`);
 
     await load();
-  } catch (e: any) {
-    setMsg(e?.message ?? String(e));
-  } finally {
+ } catch (e: unknown) {
+  const msg = e instanceof Error ? e.message : String(e);
+  setMsg(msg);
+}
+  finally {
     setBusyId(null);
   }
 }
@@ -195,14 +199,14 @@ async function generateCodePatch(id: string, spec: string, plan: string) {
     const raw = await res.text();
     if (!res.ok) throw new Error(`API ${res.status}: ${raw}`);
 
-    let data: any = {};
+    let data: unknown = {};
     try {
       data = JSON.parse(raw);
     } catch {
       throw new Error(`API returned non-JSON: ${raw}`);
     }
 
-    const patch = data?.patch;
+    const patch = (data as Record<string, unknown>)?.patch;
     if (!patch || typeof patch !== "string") throw new Error("API returned no patch text.");
 
     const { error: upErr } = await supabase
@@ -213,9 +217,11 @@ async function generateCodePatch(id: string, spec: string, plan: string) {
     if (upErr) throw new Error(`DB update failed: ${upErr.message}`);
 
     await load();
-  } catch (e: any) {
-    setMsg(e?.message ?? String(e));
-  } finally {
+  } catch (e: unknown) {
+  const msg = e instanceof Error ? e.message : String(e);
+  setMsg(msg);
+}
+   finally {
     setBusyId(null);
   }
 }
@@ -234,14 +240,14 @@ async function generateTests(id: string, spec: string, plan: string) {
     const raw = await res.text();
     if (!res.ok) throw new Error(`API ${res.status}: ${raw}`);
 
-    let data: any = {};
+    let data: unknown = {};
     try {
       data = JSON.parse(raw);
     } catch {
       throw new Error(`API returned non-JSON: ${raw}`);
     }
 
-    const tests = data?.tests;
+    const tests = (data as Record<string, unknown>)?.tests;
     if (!tests || typeof tests !== "string")
       throw new Error("API returned no tests text.");
 
@@ -253,9 +259,11 @@ async function generateTests(id: string, spec: string, plan: string) {
     if (upErr) throw new Error(`DB update failed: ${upErr.message}`);
 
     await load();
-  } catch (e: any) {
-    setMsg(e?.message ?? String(e));
-  } finally {
+  } catch (e: unknown) {
+  const msg = e instanceof Error ? e.message : String(e);
+  setMsg(msg);
+}
+   finally {
     setBusyId(null);
   }
 }
@@ -296,9 +304,11 @@ ${r.tests_markdown ?? ""}
 
     const data = JSON.parse(raw);
     setMsg(`PR created: ${data.pr_url}`);
-  } catch (e: any) {
-    setMsg(e?.message ?? String(e));
-  } finally {
+ } catch (e: unknown) {
+  const msg = e instanceof Error ? e.message : String(e);
+  setMsg(msg);
+}
+  finally {
     setBusyId(null);
   }
 }

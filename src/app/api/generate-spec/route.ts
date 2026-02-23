@@ -36,11 +36,11 @@ export async function POST(req: Request) {
 
     const spec = completion.choices?.[0]?.message?.content ?? "";
     return NextResponse.json({ spec });
-  } catch (e: any) {
-    console.error("generate-spec crash:", e);
-    return NextResponse.json(
-      { error: e?.message ?? String(e) },
-      { status: 500 }
-    );
-  }
+} catch (e: unknown) {
+  const msg = e instanceof Error ? e.message : String(e);
+  return new Response(JSON.stringify({ error: msg }), {
+    status: 500,
+    headers: { "Content-Type": "application/json" },
+  });
+}
 }

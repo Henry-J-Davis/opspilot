@@ -134,7 +134,11 @@ export async function POST(req: Request) {
     const prData = JSON.parse(prText);
 
     return NextResponse.json({ pr_url: prData.html_url, branch: branchName, filePath });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? String(e) }, { status: 500 });
-  }
+ } catch (e: unknown) {
+  const msg = e instanceof Error ? e.message : String(e);
+  return new Response(JSON.stringify({ error: msg }), {
+    status: 500,
+    headers: { "Content-Type": "application/json" },
+  });
+}
 }

@@ -12,8 +12,7 @@ export function createSupabaseServerClient() {
         getAll() {
           // Some Next versions expose getAll; others don't in server components.
           // Middleware handles session refresh reliably.
-          // @ts-ignore
-          if (typeof store.getAll === "function") return store.getAll();
+// @ts-expect-error - Supabase cookie typing mismatch in Next runtimel();
           return [];
         },
         setAll(cookiesToSet) {

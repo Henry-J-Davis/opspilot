@@ -19,6 +19,138 @@ function sh(cmd: string) {
   execSync(cmd, { stdio: "inherit" });
 }
 
+<<<<<<< Updated upstream
+=======
+function shCapture(cmd: string) {
+  console.log(`\n$ ${cmd}`);
+  try {
+    const out = execSync(cmd, { stdio: "pipe" });
+    return { ok: true as const, output: out.toString("utf8") };
+ 
+ 
+   } catch (e: unknown) {
+    const err = e as { stdout?: unknown; stderr?: unknown };
+    const stdout =
+      typeof err?.stdout === "string"
+        ? err.stdout
+        : Buffer.isBuffer(err?.stdout)
+          ? err.stdout.toString("utf8")
+          : "";
+    const stderr =
+      typeof err?.stderr === "string"
+        ? err.stderr
+        : Buffer.isBuffer(err?.stderr)
+          ? err.stderr.toString("utf8")
+          : "";
+    return { ok: false as const, output: `${stdout}\n${stderr}`.trim() };
+  }
+}
+
+function ensureCleanWorkingTreeOrFail() {
+  const res = shCapture("git status --porcelain");
+  if (!res.ok) throw new Error(`git status failed:\n${res.output}`);
+  if (res.output.trim().length > 0) {
+    throw new Error(
+      "Working tree is not clean. Commit/stash changes before running the agent.\n" +
+        res.output
+    );
+  }
+}
+
+function assertAllowedPath(filePath: string) {
+  const allowedPrefixes = [
+    "src/app/",
+    "src/components/",
+    "src/lib/",
+    "supabase/migrations/",
+  ];
+
+  const forbiddenPrefixes = [
+    ".git/",
+    ".github/",
+    ".env",
+    "node_modules/",
+    "scripts/", // prevent agent overwriting itself
+  ];
+
+  if (filePath.startsWith("/") || filePath.includes("..")) {
+    throw new Error(`Unsafe file path: ${filePath}`);
+  }
+
+  if (forbiddenPrefixes.some((p) => filePath.startsWith(p) || filePath === p)) {
+    throw new Error(`Forbidden file path: ${filePath}`);
+  }
+
+  if (!allowedPrefixes.some((p) => filePath.startsWith(p))) {
+    throw new Error(
+      `Path not allowed by allowlist: ${filePath}\nAllowed: ${allowedPrefixes.join(", ")}`
+    );
+  }
+}
+
+async function regeneratePatchFromLint(args: {
+  openai: OpenAI;
+  title: string;
+  description: string;
+  spec: string;
+  plan: string;
+  previousPatch: string;
+  lintOutput: string;
+}) {
+  const { openai, title, description, spec, plan, previousPatch, lintOutput } = args;
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4.1-mini",
+    temperature: 0.1,
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a senior engineer. You will revise a previously generated patch to fix lint errors. " +
+          "You MUST obey repo layout rules and output only full-file patch sections.",
+      },
+      {
+        role: "user",
+        content: `
+Repo rules:
+- This repo uses src/ layout.
+- All Next.js routes must be under src/app/**.
+- Components under src/components/**.
+- Helpers under src/lib/**.
+- Output ONLY sections formatted like:
+  ## <file path>
+  \`\`\`<language>
+  <FULL FILE CONTENT>
+  \`\`\`
+- No git diffs. No snippets.
+
+Feature:
+TITLE: ${title}
+DESCRIPTION: ${description}
+
+SPEC:
+${spec}
+
+PLAN:
+${plan}
+
+PREVIOUS PATCH:
+${previousPatch}
+
+LINT OUTPUT (fix these errors):
+${lintOutput}
+
+Task:
+Return a corrected patch that fixes the lint errors while implementing the feature.
+`.trim(),
+      },
+    ],
+  });
+
+  return completion.choices?.[0]?.message?.content ?? "";
+}
+
+>>>>>>> Stashed changes
 // Naive but effective parser:
 // Expects patch markdown sections like:
 // ## path/to/file
@@ -75,7 +207,11 @@ async function main() {
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
+const branchInfo = shCapture("git rev-parse --abbrev-ref HEAD");
+if (branchInfo.ok) {
+  console.log(`Current branch: ${branchInfo.output.trim()}`);
+}
+  
   // 1) Load feature request
   const { data: fr, error } = await supabase
     .from("feature_requests")
@@ -98,6 +234,13 @@ async function main() {
 
   // 3) Create a new git branch
   const branchName = `agent/${row.id.slice(0, 8)}-${Date.now()}`;
+<<<<<<< Updated upstream
+=======
+
+if (!DRY_RUN) {
+  ensureCleanWorkingTreeOrFail();
+  console.log(`git status summary:\n${shCapture("git status --porcelain").output}`);
+>>>>>>> Stashed changes
   sh(`git checkout -b ${branchName}`);
 
   // 4) Apply file writes

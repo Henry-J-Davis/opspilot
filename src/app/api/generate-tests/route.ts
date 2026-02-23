@@ -53,11 +53,11 @@ ${plan}
     const tests = completion.choices?.[0]?.message?.content ?? "";
 
     return NextResponse.json({ tests });
-  } catch (e: any) {
-    console.error("generate-tests error:", e);
-    return NextResponse.json(
-      { error: e?.message ?? String(e) },
-      { status: 500 }
-    );
-  }
+ } catch (e: unknown) {
+  const msg = e instanceof Error ? e.message : String(e);
+  return new Response(JSON.stringify({ error: msg }), {
+    status: 500,
+    headers: { "Content-Type": "application/json" },
+  });
+}
 }

@@ -3,6 +3,15 @@
 import { useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
+type CreateTicketPayload = {
+  title: string;
+  status: "Open" | "In Progress" | "Done";
+  priority: "Low" | "Medium" | "High";
+  owner_id: string;
+  due_date?: string; // ISO string expected by your API
+};
+
+
 type Ticket = {
   id: string;
   title: string | null;
@@ -50,7 +59,7 @@ export default function DashboardClient() {
     setMsg(null);
     if (!title.trim()) return;
 
-    const payload: any = {
+    const payload: CreateTicketPayload = {
   title,
   status: "Open",
   priority: "Medium",
