@@ -12,13 +12,14 @@ export function createSupabaseServerClient() {
         getAll() {
           // Some Next versions expose getAll; others don't in server components.
           // Middleware handles session refresh reliably.
-// @ts-expect-error - Supabase cookie typing mismatch in Next runtimel();
+
           return [];
         },
-        setAll(cookiesToSet) {
+        async setAll(cookiesToSet) {
           try {
+            const cookieStore = await store;
             cookiesToSet.forEach(({ name, value, options }) => {
-              store.set(name, value, options);
+              cookieStore.set(name, value, options);
             });
           } catch {
             // Ignore - middleware will set cookies when needed
