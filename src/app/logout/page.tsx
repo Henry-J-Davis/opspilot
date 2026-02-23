@@ -1,10 +1,9 @@
+// src/app/logout/page.tsx
 import { NextResponse } from "next/server";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function GET() {
-  const supabase = createRouteHandlerClient({ cookies });
+  const supabase = await createSupabaseServerClient();
   await supabase.auth.signOut();
-
-  return NextResponse.redirect(new URL("/login", "http://localhost:3000"));
+  return NextResponse.redirect("/login");
 }
