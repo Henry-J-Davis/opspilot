@@ -294,12 +294,20 @@ async function main() {
     row.code_patch_markdown = newPatch;
   }
 
+  const scriptsRes = shCapture("npm run -s");
+const hasTestScript =
+  scriptsRes.ok && /\btest\b/.test(scriptsRes.output);
+
+if (!hasTestScript) {
+  console.log("ℹ️ No npm test script found. Skipping tests.");
+} else {
   try {
     sh("npm test");
   } catch {
     console.warn("Tests failed. Fix issues or adjust runner.");
     process.exit(1);
   }
+}
 
   sh("git add -A");
   sh(`git commit -m "Agent: ${row.title}"`);
