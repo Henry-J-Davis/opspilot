@@ -1,4 +1,4 @@
-// src/app/logout/page.tsx
+// src/app/logout/route.ts
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 

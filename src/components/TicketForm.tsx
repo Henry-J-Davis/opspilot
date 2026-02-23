@@ -59,16 +59,16 @@ export function TicketForm({ initialData, onSubmit, submitting }: TicketFormProp
       onSubmit(parsed);
     } catch (err) {
       if (err instanceof z.ZodError) {
-        const fieldErrors: { [key: string]: string } = {};
-        err.errors.forEach((error) => {
-          if (error.path.length > 0) {
-            fieldErrors[error.path[0]] = error.message;
-          }
-        });
-        setErrors(fieldErrors);
-      }
+  const fieldErrors: Record<string, string> = {};
+
+  err.issues.forEach((issue) => {
+    const key = issue.path?.[0];
+    if (typeof key === "string" || typeof key === "number") {
+      fieldErrors[String(key)] = issue.message;
     }
-  }
+  });
+
+  setErrors(fieldErrors);
 
   return (
     <form onSubmit={handleSubmit} noValidate>

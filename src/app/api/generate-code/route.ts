@@ -52,10 +52,10 @@ ${plan}
     const patch = completion.choices?.[0]?.message?.content ?? "";
     return NextResponse.json({ patch });
   } catch (e: unknown) {
-    console.error("generate-code error:", e);
-    return NextResponse.json(
-      { error: e?.message ?? String(e) },
-      { status: 500 }
-    );
-  }
+  console.error("generate-code error:", e);
+
+  const msg = e instanceof Error ? e.message : String(e);
+
+  return NextResponse.json({ error: msg }, { status: 500 });
+}
 }
