@@ -57,18 +57,25 @@ export function TicketForm({ initialData, onSubmit, submitting }: TicketFormProp
         due_date: dueDate === "" ? null : new Date(dueDate).toISOString(),
       });
       onSubmit(parsed);
-    } catch (err) {
+       } catch (err: unknown) {
       if (err instanceof z.ZodError) {
-  const fieldErrors: Record<string, string> = {};
+        const fieldErrors: Record<string, string> = {};
 
-  err.issues.forEach((issue) => {
-    const key = issue.path?.[0];
-    if (typeof key === "string" || typeof key === "number") {
-      fieldErrors[String(key)] = issue.message;
+        err.issues.forEach((issue) => {
+          const key = issue.path?.[0];
+          if (typeof key === "string" || typeof key === "number") {
+            fieldErrors[String(key)] = issue.message;
+          }
+        });
+
+        setErrors(fieldErrors);
+        return;
+      }
+
+      // Non-validation error
+      setErrors({ form: "Something went wrong. Please try again." });
     }
-  });
-
-  setErrors(fieldErrors);
+  }
 
   return (
     <form onSubmit={handleSubmit} noValidate>
@@ -150,6 +157,10 @@ export function TicketForm({ initialData, onSubmit, submitting }: TicketFormProp
         </label>
       </div>
 
+
+      {errors.form && (
+        <p style={{ color: "red", marginTop: "0.5rem" }}>{errors.form}</p>
+      )}
       <button type="submit" disabled={submitting} style={{ padding: "0.5rem 1rem" }}>
         {submitting ? "Saving..." : "Save"}
       </button>
