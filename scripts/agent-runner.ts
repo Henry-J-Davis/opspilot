@@ -1,6 +1,4 @@
-import dotenv from "dotenv";
-dotenv.config({ path: ".env.local", quiet: true });
-
+import "dotenv/config";
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
 import { execSync } from "node:child_process";
