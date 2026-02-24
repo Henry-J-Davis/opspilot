@@ -60,9 +60,9 @@ jobs:
               repo,
               head,
               base,
-              title,
-              body,
-              draft: false,
+              title `Agent: ${head}`,
+              body: `Auto-created PR for branch \`${head}\`.`,
+              draft: true,
             });
 
             core.info(`Created PR: ${pr.html_url}`);
