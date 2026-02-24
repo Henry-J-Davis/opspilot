@@ -208,14 +208,18 @@ async function main() {
   const row = rows[0] as FeatureRequestRow;
 
   console.log("\nLoaded Feature Request:");
+  console.log(`- title: ${row.title}`);
   console.log(`- id: ${row.id}`);
   console.log(`- title: ${row.title}`);
-
+  
   if (!row.code_patch_markdown) {
     throw new Error("No code_patch_markdown found. Generate Code Patch in the app first.");
   }
 
   const branchName = `agent/${row.id.slice(0, 8)}-${Date.now()}`;
+
+
+ 
 
   if (!DRY_RUN) {
     ensureCleanWorkingTreeOrFail();
@@ -223,6 +227,36 @@ async function main() {
   } else {
     console.log("\n[DRY RUN] Skipping clean-tree check and branch creation.");
   }
+
+   // ---- Write PR Summary File ----
+const docsDir = path.join(process.cwd(), "docs", "agent");
+fs.mkdirSync(docsDir, { recursive: true });
+
+const summaryPath = path.join(docsDir, `${row.id}.md`);
+
+const summaryContent = `
+# Agent PR Summary
+
+## Title
+${row.title}
+
+## Description
+${row.description}
+
+## Spec
+${row.spec_markdown ?? "_No spec provided_"}
+
+## Plan
+${row.plan_markdown ?? "_No plan provided_"}
+
+## Generated
+- Feature ID: ${row.id}
+- Timestamp: ${new Date().toISOString()}
+- Branch: ${branchName}
+`.trim();
+
+fs.writeFileSync(summaryPath, summaryContent, "utf8");
+console.log(`Wrote summary: docs/agent/${row.id}.md`);
 
   const files = extractFilesFromPatch(row.code_patch_markdown);
   if (files.length === 0) {
@@ -315,9 +349,12 @@ sh(`git push -u origin ${branchName}`);
 
 const prUrl = `https://github.com/Henry-J-Davis/opspilot/pull/new/${branchName}`;
 
+
+
 console.log("\n✅ Branch pushed.");
 console.log("✅ GitHub Actions will open a PR automatically for agent/** branches.");
 console.log(`✅ Branch: ${branchName}`);
+}
 
 main().catch((e) => {
   console.error("\nRunner error:", e);
